@@ -1,28 +1,44 @@
 {
-  "services": {
-    "frontend": {
-      "root": "frontend",
-      "framework": "vite"
+  "version": 2,
+  "builds": [
+    {
+      "src": "backend/src/index.js",
+      "use": "@vercel/node",
+      "config": {
+        "maxDuration": 300,
+        "includeFiles": [
+          "backend/prisma/schema.prisma"
+        ]
+      }
     },
-    "backend": {
-      "root": "backend",
-      "entrypoint": "src/index.js"
+    {
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
     }
-  },
-  "rewrites": [
+  ],
+  "routes": [
     {
-      "source": "/api/(.*)?",
-      "destination": {
-        "type": "service",
-        "service": "backend"
-      }
+      "src": "/api/(.*)",
+      "dest": "backend/src/index.js"
     },
     {
-      "source": "/(.*)",
-      "destination": {
-        "type": "service",
-        "service": "frontend"
-      }
+      "src": "/assets/(.*)",
+      "dest": "frontend/assets/$1"
+    },
+    {
+      "src": "/favicon.ico",
+      "dest": "frontend/favicon.ico"
+    },
+    {
+      "src": "/vite.svg",
+      "dest": "frontend/vite.svg"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "frontend/index.html"
     }
   ]
 }
