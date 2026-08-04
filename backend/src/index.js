@@ -130,31 +130,59 @@ function assertCanTransition(current, next) {
   }
 }
 
-// --- Helper: aggregate upload stats in ONE query ---
+// --- Helper: aggregate upload stats ---
 async function recountUploadStats(uploadId) {
-  const [statusRows, deliveryRows] = await Promise.all([
-    prisma.$queryRaw`
-      SELECT
-        COUNT(*)::int                                          AS "totalRows",
-        COUNT(*) FILTER (WHERE status = 'valid')::int         AS "validEmails",
-        COUNT(*) FILTER (WHERE status = 'invalid')::int       AS "invalidEmails",
-        COUNT(*) FILTER (WHERE status = 'duplicate')::int     AS "duplicateEmails",
-        COUNT(*) FILTER (WHERE status = 'unsubscribed')::int  AS "unsubscribedEmails"
-      FROM contacts
-      WHERE upload_id = ${uploadId}
-    `,
-    prisma.$queryRaw`
-      SELECT
-        COUNT(*) FILTER (WHERE delivery_status = 'sent')::int     AS "sentCount",
-        COUNT(*) FILTER (WHERE delivery_status = 'failed')::int   AS "failedCount",
-        COUNT(*) FILTER (WHERE delivery_status = 'pending')::int  AS "pendingCount",
-        COUNT(*) FILTER (WHERE delivery_status = 'skipped')::int  AS "skippedCount"
-      FROM contacts
-      WHERE upload_id = ${uploadId}
-    `,
-  ]);
-  const stats = { ...statusRows[0], ...deliveryRows[0] };
-  return { ...stats, totalCount: stats.validEmails };
+  try {
+    const [
+      totalRows,
+      validEmails,
+      invalidEmails,
+      duplicateEmails,
+      unsubscribedEmails,
+      sentCount,
+      failedCount,
+      pendingCount,
+      skippedCount,
+    ] = await Promise.all([
+      prisma.contact.count({ where: { uploadId } }),
+      prisma.contact.count({ where: { uploadId, status: 'valid' } }),
+      prisma.contact.count({ where: { uploadId, status: 'invalid' } }),
+      prisma.contact.count({ where: { uploadId, status: 'duplicate' } }),
+      prisma.contact.count({ where: { uploadId, status: 'unsubscribed' } }),
+      prisma.contact.count({ where: { uploadId, deliveryStatus: 'sent' } }),
+      prisma.contact.count({ where: { uploadId, deliveryStatus: 'failed' } }),
+      prisma.contact.count({ where: { uploadId, deliveryStatus: 'pending' } }),
+      prisma.contact.count({ where: { uploadId, deliveryStatus: 'skipped' } }),
+    ]);
+
+    return {
+      totalRows,
+      validEmails,
+      invalidEmails,
+      duplicateEmails,
+      unsubscribedEmails,
+      sentCount,
+      failedCount,
+      pendingCount,
+      skippedCount,
+      totalCount: validEmails,
+    };
+  } catch (err) {
+    console.error(`❌ [recountUploadStats Error] Upload ${uploadId}:`, err.message);
+    const upload = await prisma.upload.findUnique({ where: { id: uploadId } });
+    return {
+      totalRows: upload?.totalRows || 0,
+      validEmails: upload?.validEmails || 0,
+      invalidEmails: upload?.invalidEmails || 0,
+      duplicateEmails: upload?.duplicateEmails || 0,
+      unsubscribedEmails: upload?.unsubscribedEmails || 0,
+      sentCount: upload?.sentCount || 0,
+      failedCount: upload?.failedCount || 0,
+      pendingCount: upload?.pendingCount || 0,
+      skippedCount: upload?.skippedCount || 0,
+      totalCount: upload?.totalCount || 0,
+    };
+  }
 }
 
 // --- Helper: sync aggregated stats into Upload database record ---

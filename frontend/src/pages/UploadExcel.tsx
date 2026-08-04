@@ -65,13 +65,16 @@ export default function UploadExcel() {
 
   const handleDelete = async () => {
     if (!deletingUpload) return;
+    const targetId = deletingUpload.id;
+    setDeletingUpload(null);
+    // Optimistic UI state removal so item disappears instantly
+    setUploads((prev) => prev.filter((u) => u.id !== targetId));
     try {
-      await uploadApi.delete(deletingUpload.id);
+      await uploadApi.delete(targetId);
       toast.success('Upload deleted successfully');
-      setDeletingUpload(null);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to delete upload');
       fetchUploads();
-    } catch (err) {
-      toast.error('Failed to delete upload');
     }
   };
 
