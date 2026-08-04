@@ -2,36 +2,35 @@
   "version": 2,
   "builds": [
     {
-      "src": "frontend/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    },
-    {
       "src": "backend/src/index.js",
       "use": "@vercel/node",
       "config": {
         "maxDuration": 300,
         "includeFiles": [
-          "backend/prisma/schema.prisma",
-          "node_modules/.prisma/client/**/*"
+          "backend/prisma/schema.prisma"
         ]
+      }
+    },
+    {
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
       }
     }
   ],
-  "rewrites": [
+  "routes": [
     {
-      "source": "/api/(.*)",
-      "destination": "/backend/src/index.js"
+      "src": "/api/(.*)",
+      "dest": "backend/src/index.js"
     },
     {
-      "source": "/assets/(.*)",
-      "destination": "/frontend/assets/$1"
+      "src": "/assets/(.*)",
+      "dest": "frontend/assets/$1"
     },
     {
-      "source": "/(.*)",
-      "destination": "/frontend/index.html"
+      "src": "/(.*)",
+      "dest": "frontend/index.html"
     }
   ]
 }

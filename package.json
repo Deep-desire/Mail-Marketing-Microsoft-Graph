@@ -1,0 +1,8 @@
+{
+  "name": "desire-mail-marketing-excel-graph",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "npm run build --prefix frontend && npm run prisma:generate --prefix backend"
+  }
+}
