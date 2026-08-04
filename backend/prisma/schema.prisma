@@ -1,0 +1,99 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Admin {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("admins")
+}
+
+model Upload {
+  id                 String    @id @default(uuid())
+  fileName           String    @map("file_name")
+  originalName       String    @map("original_name")
+  totalRows          Int       @default(0) @map("total_rows")
+  validEmails        Int       @default(0) @map("valid_emails")
+  invalidEmails      Int       @default(0) @map("invalid_emails")
+  duplicateEmails    Int       @default(0) @map("duplicate_emails")
+  unsubscribedEmails Int       @default(0) @map("unsubscribed_emails")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  contacts           Contact[]
+
+  // Delivery stats
+  status       String    @default("idle")
+  totalCount   Int       @default(0) @map("total_count")
+  sentCount    Int       @default(0) @map("sent_count")
+  failedCount  Int       @default(0) @map("failed_count")
+  pendingCount Int       @default(0) @map("pending_count")
+  skippedCount Int       @default(0) @map("skipped_count")
+  templateId   String?   @map("template_id")
+  template     Template? @relation(fields: [templateId], references: [id])
+  scheduledAt  DateTime? @map("scheduled_at")
+
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([createdAt])
+  @@map("uploads")
+}
+
+model Contact {
+  id       String  @id @default(uuid())
+  name     String
+  email    String
+  status   String // valid, invalid, duplicate, unsubscribed
+  error    String?
+  uploadId String  @map("upload_id")
+  upload   Upload  @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+
+  // Delivery fields
+  deliveryStatus String    @default("idle") @map("delivery_status")
+  deliveryError  String?   @map("delivery_error")
+  sentAt         DateTime? @map("sent_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([uploadId])
+  @@index([uploadId, status])
+  @@index([uploadId, deliveryStatus])
+  @@index([uploadId, deliveryStatus, status])
+  @@index([email])
+  @@index([sentAt])
+  @@index([deliveryStatus])
+  @@map("contacts")
+}
+
+model Unsubscribed {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  token     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("unsubscribed")
+}
+
+model Template {
+  id            String   @id @default(uuid())
+  name          String
+  subject       String
+  htmlBody      String   @map("html_body")
+  plainTextBody String   @map("plain_text_body")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  uploads       Upload[]
+
+  @@map("templates")
+}
+

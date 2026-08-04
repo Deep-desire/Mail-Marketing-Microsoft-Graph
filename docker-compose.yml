@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    container_name: desire-azurite
+    restart: unless-stopped
+    ports:
+      - '10000:10000'
+      - '10001:10001'
+      - '10002:10002'
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: desire-backend
+    restart: unless-stopped
+    depends_on:
+      - azurite
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      DIRECT_URL: ${DIRECT_URL}
+      AzureWebJobsStorage: DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;
+      JWT_SECRET: desire-jwt-secret-change-in-production
+      JWT_EXPIRES_IN: 24h
+      AZURE_COMMUNICATION_CONNECTION_STRING: ${AZURE_COMMUNICATION_CONNECTION_STRING:-}
+      AZURE_COMMUNICATION_FROM_EMAIL: ${AZURE_COMMUNICATION_FROM_EMAIL:-donotreply@yourdomain.com}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      FRONTEND_URL: http://localhost
+    ports:
+      - '7071:80'
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: desire-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - '80:80'
