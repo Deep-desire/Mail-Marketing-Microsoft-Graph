@@ -404,42 +404,44 @@ async function processCampaignInBackground(uploadId, templateId) {
   }
 }
 
-// --- Background Worker Loop for Dev & Recovery (runs every 10s) ---
-setInterval(async () => {
-  try {
-    const now = new Date();
+// --- Background Worker Loop for Dev & Recovery (runs every 10s only in persistent non-Vercel environments) ---
+if (!process.env.VERCEL) {
+  setInterval(async () => {
+    try {
+      const now = new Date();
 
-    // 1. Scheduled campaigns due
-    const dueUploads = await prisma.upload.findMany({
-      where: { status: 'scheduled', scheduledAt: { lte: now } },
-    });
+      // 1. Scheduled campaigns due
+      const dueUploads = await prisma.upload.findMany({
+        where: { status: 'scheduled', scheduledAt: { lte: now } },
+      });
 
-    for (const upload of dueUploads) {
-      if (upload.templateId) {
-        console.log(`⏰ [Scheduler Worker] Triggering scheduled campaign "${upload.originalName}" (${upload.id})...`);
-        processCampaignInBackground(upload.id, upload.templateId);
-      }
-    }
-
-    // 2. Resume processing campaigns with pending contacts
-    const processingUploads = await prisma.upload.findMany({
-      where: { status: 'processing' },
-    });
-
-    for (const upload of processingUploads) {
-      if (upload.templateId) {
-        const counts = await syncAndRecountUploadStats(upload.id);
-        if (counts.pendingCount > 0) {
+      for (const upload of dueUploads) {
+        if (upload.templateId) {
+          console.log(`⏰ [Scheduler Worker] Triggering scheduled campaign "${upload.originalName}" (${upload.id})...`);
           processCampaignInBackground(upload.id, upload.templateId);
-        } else {
-          await checkUploadCompletion(upload.id);
         }
       }
+
+      // 2. Resume processing campaigns with pending contacts
+      const processingUploads = await prisma.upload.findMany({
+        where: { status: 'processing' },
+      });
+
+      for (const upload of processingUploads) {
+        if (upload.templateId) {
+          const counts = await syncAndRecountUploadStats(upload.id);
+          if (counts.pendingCount > 0) {
+            processCampaignInBackground(upload.id, upload.templateId);
+          } else {
+            await checkUploadCompletion(upload.id);
+          }
+        }
+      }
+    } catch (_err) {
+      // Ignore quiet polling errors
     }
-  } catch (_err) {
-    // Ignore quiet polling errors
-  }
-}, 10000);
+  }, 10000);
+}
 
 // --- Helper: re-evaluate duplicate status for specific emails ---
 async function revalidateDuplicatesForEmails(uploadId, emails) {
