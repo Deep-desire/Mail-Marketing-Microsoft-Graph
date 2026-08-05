@@ -188,6 +188,13 @@ async function recountUploadStats(uploadId) {
 // --- Helper: sync aggregated stats into Upload database record ---
 async function syncAndRecountUploadStats(uploadId) {
   const counts = await recountUploadStats(uploadId);
+  const upload = await prisma.upload.findUnique({ where: { id: uploadId }, select: { status: true } });
+
+  let updatedStatus = upload?.status;
+  if (upload && upload.status === 'processing' && counts.pendingCount === 0) {
+    updatedStatus = counts.failedCount > 0 && counts.sentCount === 0 ? 'failed' : 'completed';
+  }
+
   await prisma.upload.update({
     where: { id: uploadId },
     data: {
@@ -200,9 +207,11 @@ async function syncAndRecountUploadStats(uploadId) {
       invalidEmails: counts.invalidEmails,
       duplicateEmails: counts.duplicateEmails,
       unsubscribedEmails: counts.unsubscribedEmails,
+      ...(updatedStatus ? { status: updatedStatus } : {}),
     },
   }).catch(() => { });
-  return counts;
+
+  return { ...counts, status: updatedStatus || upload?.status || 'idle' };
 }
 
 // --- Helper: mask email for GDPR compliance ---
